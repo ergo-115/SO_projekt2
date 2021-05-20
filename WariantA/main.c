@@ -38,12 +38,13 @@ void *CarRoutine(void *args)
         carsInA--;
         carsBeforeBridgeA++;
         PrintStatus();
+        ClockSleep(minSleepTime,maxSleepTime);
 		//printf("Samochód %d zatankował i wyjeżdza do miasta B\n",vehicleNo);
 		
 		//przejazd przez most, który zajmuje do 5 s czasu
 		//most jest wtedy zablokowany i nie przejezdny
 		pthread_mutex_lock(&bridge);
-        carsBeforeBridgeA++;
+        carsBeforeBridgeA--;
         carOnBridge = vehicleNo;
         direction=">>";
         PrintStatus();
@@ -51,7 +52,10 @@ void *CarRoutine(void *args)
 		ClockSleep(minSleepTime,maxSleepTime);
         //printf("Samochód %d przejechał przez most\n",vehicleNo);
 		pthread_mutex_unlock(&bridge);
-
+        carsBeforeBridgeB++;
+        PrintStatus();
+        ClockSleep(minSleepTime,maxSleepTime);
+        carsBeforeBridgeB--;
         carsInB++;
         PrintStatus();
 		//printf("Samochód %d załatwia swoje sprawy na mieście B\n",vehicleNo);
@@ -63,6 +67,7 @@ void *CarRoutine(void *args)
 		//most jest wtedy zablokowany i nie przejezdny
         carsBeforeBridgeB++;
         PrintStatus();
+        ClockSleep(minSleepTime,maxSleepTime);
 		pthread_mutex_lock(&bridge);
         carOnBridge = vehicleNo;
         direction="<<";
@@ -71,6 +76,9 @@ void *CarRoutine(void *args)
 		ClockSleep(minSleepTime,maxSleepTime);
         //printf("Samochód %d przejechał przez most\n",vehicleNo);
 		pthread_mutex_unlock(&bridge);
+        carsBeforeBridgeA++;
+        ClockSleep(minSleepTime,maxSleepTime);
+        carsBeforeBridgeA--;
 	}
 }
 
