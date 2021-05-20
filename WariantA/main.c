@@ -1,6 +1,9 @@
 #include "data.h"
 
 int iter = 1;
+//tworzymy most jako zmienną globalną, ponieważ ma być
+//dostępny dla każdego samochodu
+pthread_mutex_t bridge;
 
 void *CarRoutine(void *args)
 {
@@ -17,7 +20,7 @@ void *CarRoutine(void *args)
 		pthread_mutex_lock(&bridge);
 		printf("Samochód %d przejeżdza przez most",vehicleNo);
 		ClockSleep(5000);
-		pthred_mutex_unlock(&bridge);
+		pthread_mutex_unlock(&bridge);
 		printf("Samochód %d przejechał przez most",vehicleNo);
 
 		printf("Samochód %d załatwia swoje sprawy na mieście B",vehicleNo);
@@ -29,14 +32,12 @@ void *CarRoutine(void *args)
 		pthread_mutex_lock(&bridge);
 		printf("Samochód %d przejeżdza przez most",vehicleNo);
 		ClockSleep(5000);
-		pthred_mutex_unlock(&bridge);
+		pthread_mutex_unlock(&bridge);
 		printf("Samochód %d przejechał przez most",vehicleNo);
 	}
 }
 
-//tworzymy most jako zmienną globalną, ponieważ ma być
-//dostępny dla każdego samochodu
-pthread_mutex_t bridge;
+
 
 int main(int argc, char* argv[])
 {

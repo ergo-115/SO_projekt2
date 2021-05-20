@@ -20,5 +20,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <utime.h>
+#include <pthread.h>
+#include "funkcje.h"
 
 #endif
