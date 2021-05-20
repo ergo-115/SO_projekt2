@@ -1,8 +1,8 @@
 #include "data.h"
 
-//costam
 
-void ClockSleep(int maxTime)
+
+void ClockSleep(int minTime,int maxTime)
 {
     //pobieramy aktualny czas systemowy
     time_t tt;
@@ -15,7 +15,17 @@ void ClockSleep(int maxTime)
     srand(seed);
 
     //śpimy nie więcej, niż to wynosi maxTime
-    usleep(rand()%maxTime);
+    int sleepingTime=rand()%maxTime;
+
+    //sprawdzamy, czy wartość sleepingTime nie jest mniejsza niż
+    //minTime
+    while(sleepingTime<minTime)
+    {
+        sleepingTime=rand()%maxTime;
+    }
+
+
+    usleep(sleepingTime);
     return;
 }
 
@@ -34,6 +44,9 @@ int lenHelper(unsigned carCounter)
     }
     return length;
 }
+
+//Funkcja do walidacji danych wejściowych, zwraca false, jeśli walidacja
+//nie przeszła, zwraca true, jeśli dane są poprawne
 
 bool ValidateData(int argc,char *argv[])
 {
@@ -77,4 +90,5 @@ bool ValidateData(int argc,char *argv[])
 
     return true;
 }
+
 
