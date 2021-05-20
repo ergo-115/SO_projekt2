@@ -52,7 +52,7 @@ bool ValidateData(int argc,char *argv[])
 
     if(carCounter < 0)
     {
-        printf("Liczba samochodów nie może być ujemna!");
+        printf("Liczba samochodów nie może być ujemna!\n");
         errno=-1;
         return false;
     }
@@ -70,7 +70,7 @@ bool ValidateData(int argc,char *argv[])
     //muszą być jakieś samochody przecież
     if(carCounter == 0)
     {
-        printf("carCounter samochodów nie może wynosić 0!");
+        printf("carCounter samochodów nie może wynosić 0!\n");
         errno=-1;
         return false;
     }

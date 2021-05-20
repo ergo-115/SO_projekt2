@@ -11,29 +11,29 @@ void *CarRoutine(void *args)
     iter++;
 	while(1)
 	{
-		printf("Samochód %d załatwia swoje sprawy w mieście A",vehicleNo);
+		printf("Samochód %d załatwia swoje sprawy w mieście A\n",vehicleNo);
 		ClockSleep(10000);
-		printf("Samochód %d zatankował i wyjeżdza do miasta B",vehicleNo);
+		printf("Samochód %d zatankował i wyjeżdza do miasta B\n",vehicleNo);
 		
 		//przejazd przez most, który zajmuje do 5 s czasu
 		//most jest wtedy zablokowany i nie przejezdny
 		pthread_mutex_lock(&bridge);
-		printf("Samochód %d przejeżdza przez most",vehicleNo);
+		printf("Samochód %d przejeżdza przez most\n",vehicleNo);
 		ClockSleep(5000);
 		pthread_mutex_unlock(&bridge);
-		printf("Samochód %d przejechał przez most",vehicleNo);
+		printf("Samochód %d przejechał przez most\n",vehicleNo);
 
-		printf("Samochód %d załatwia swoje sprawy na mieście B",vehicleNo);
+		printf("Samochód %d załatwia swoje sprawy na mieście B\n",vehicleNo);
 		ClockSleep(10000);
-		printf("Samochód %d zatankował i wyjeżdza do miasta A",vehicleNo);
+		printf("Samochód %d zatankował i wyjeżdza do miasta A\n",vehicleNo);
 
 		//przejazd przez most, który zajmuje do 5 s czasu
 		//most jest wtedy zablokowany i nie przejezdny
 		pthread_mutex_lock(&bridge);
-		printf("Samochód %d przejeżdza przez most",vehicleNo);
+		printf("Samochód %d przejeżdza przez most\n",vehicleNo);
 		ClockSleep(5000);
 		pthread_mutex_unlock(&bridge);
-		printf("Samochód %d przejechał przez most",vehicleNo);
+		printf("Samochód %d przejechał przez most\n",vehicleNo);
 	}
 }
 
@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 {
     if(ValidateData(argc,argv) == false)
     {
-        printf("Błąd danych wejściowych, anulowanie");
+        printf("Błąd danych wejściowych, anulowanie\n");
         exit(EXIT_FAILURE);
     }
 
