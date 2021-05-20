@@ -70,5 +70,10 @@ int main(int argc, char* argv[])
             return -1;
         }
     }
+
+	for(i=0;i<CarNumber;i++)
+    {
+        pthread_join(car[i], NULL);
+    }
     return 0;
 }
