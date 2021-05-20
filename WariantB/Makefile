@@ -1,3 +1,3 @@
 
-main: funkcje.c main.c
-	gcc main.c funkcje.c -o main
+main: init.c main.c
+	gcc main.c -pthread init.c -o main
