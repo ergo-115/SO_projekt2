@@ -2,7 +2,7 @@
 
 //costam
 
-void CityTourSleep(int maxTime)
+void ClockSleep(int maxTime)
 {
     //pobieramy aktualny czas systemowy
     time_t tt;
@@ -78,7 +78,3 @@ bool ValidateData(int argc,char *argv[])
     return true;
 }
 
-bool CreateBridgeAndCars(int carNumber)
-{
-
-}
