@@ -5,6 +5,12 @@ int iter = 1;
 //dostępny dla każdego samochodu
 pthread_mutex_t bridge;
 
+int carsInA=0;
+int carsInB=0;
+int carOnBridge=0;
+int carsBeforeBridgeA=0;
+int carsBeforeBridgeB=0;
+
 void *CarRoutine(void *args)
 {
     int vehicleNo = iter;
