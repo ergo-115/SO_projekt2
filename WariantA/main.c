@@ -20,8 +20,8 @@ void *CarRoutine(void *args)
 		pthread_mutex_lock(&bridge);
 		printf("Samochód %d przejeżdza przez most\n",vehicleNo);
 		ClockSleep(5000);
+        printf("Samochód %d przejechał przez most\n",vehicleNo);
 		pthread_mutex_unlock(&bridge);
-		printf("Samochód %d przejechał przez most\n",vehicleNo);
 
 		printf("Samochód %d załatwia swoje sprawy na mieście B\n",vehicleNo);
 		ClockSleep(10000);
@@ -32,8 +32,8 @@ void *CarRoutine(void *args)
 		pthread_mutex_lock(&bridge);
 		printf("Samochód %d przejeżdza przez most\n",vehicleNo);
 		ClockSleep(5000);
+        printf("Samochód %d przejechał przez most\n",vehicleNo);
 		pthread_mutex_unlock(&bridge);
-		printf("Samochód %d przejechał przez most\n",vehicleNo);
 	}
 }
 
