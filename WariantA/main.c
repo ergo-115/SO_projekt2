@@ -8,6 +8,10 @@ void *CarRoutine(void *args)
 	iter++;
 }
 
+//tworzymy most jako zmienną globalną, ponieważ ma być
+//dostępny dla każdego samochodu
+pthread_mutex_t bridge;
+
 int main(int argc, char* argv[])
 {
 	if(ValidateData(argc,argv) == false)
@@ -15,5 +19,7 @@ int main(int argc, char* argv[])
 		printf("Błąd danych wejściowych, anulowanie");
 		exit(EXIT_FAILURE);
 	}
+
+	int CarNumber = atoi(argv[1]);
 	return 0;
 }
