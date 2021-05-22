@@ -6,5 +6,5 @@ struct bridgeInfo resetBridge(bridgeInfo data);
 int changeCity(int x);
 int selectRandomCity();
 int randTime();
-
+int randTimeOnBridge();
 #endif

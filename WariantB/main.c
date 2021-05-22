@@ -1,98 +1,85 @@
 #include "data.h"
 #include "init.h"
-
+//założenie blokady na mutex, uniemożliwienie przerwania wątku
 #define lockMutex(varMutex) \
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); \
     pthread_mutex_lock(&varMutex)
 
-/* 
-    Zdjęcie blokady z mutexu podanego w parametrze oraz umożliwienie przerwania wątku
-*/
+//zdjęcie blokady z mutexa, umożliwienie przerwania wątku
 #define unlockMutex(varMutex) \
     pthread_mutex_unlock(&varMutex); \
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
 
-/* 
-    Zawieszenie wykonania procesu przed rozpoczęciem wypisywania statusu 
-*/
+
+//zawiesza proces, by móc wypisać obecny stan
 #define startWriting() \
     while (writing) \
         pthread_cond_wait(&condStats, &stats);\
     writing = 1
 
-/* 
-    Wnowienie wykonania procesu po zakończeniu wypisywania statusu 
-*/
+//wznawia proces po wypisaniu statusu
 #define stopWriting() \
     writing = 0;\
     pthread_cond_signal(&condStats)
 
-/* Wartość odpowiadająca miastu A */
+//Stała - miasto A
 #define A 0
-/* Wartość odpowiadająca miastu B */
+//Stała - miasto B
 #define B 1
-/* Wartość odpowiadająca samochodowi przebywającemu w mieście */
-#define STATE_CITY 0
-/* Wartość odpowiadająca samochodowi przebywającemu w kolejce */
-#define STATE_QUEUE 1
-/* Wartość odpowiadająca samochodowi przejeżdżającemu przez most */
-#define STATE_CROSSING 2
+//Stała - gdy samochód jest w mieście
+#define CITY 0
+//Stała - gdy samochód czeka w kolejce
+#define QUEUE 1
+//Stała, gdy samochod przejeżdza przez most
+#define ON_BRIDGE 2
+//Inicjalizacja mutexów oraz zmiennych warunkowych
 int initializeStart();
-void createJoinThreads();
+//Kasowanie mutexów oraz zmiennych warunkowych
 void closeThreads();
-/* Funkcja wymuszająca natychmiastowe zamknięcie programu */
-void forceCloseProgram(int sig);
-/* Funkcja zamykająca program */
+//Przechwycenie sygnału by zakończyć działanie programu
 void closeProgram(int sig);
-/* Funkcja generująca losową wartość z przedziału*/
-int random_range(int min, int max);
-/* Funkcja definiująca zachowanie samochodów */
+//Ponowne przechwycenie sygnału w razie problemów z normalnym zakończeniem prorgamu
+void forceCloseProgram(int sig);
+//Funkcja definiująca zachowanie wątku(samochodu)
 void* threadRoutine(void *threadId);
-/* Funkcja wypisująca ilość samochodów w miastach, kolejkach oraz numer samochodu obecnie przejeżdżającego*/
+//Funkcja wypisująca obecną sytuację w programie, w formacie jak było podane
 void currentStatus();
-
+//Inicjalizacja struktury
 struct car* cars;
-
 struct bridgeInfo strBridgeInfo;
-// Zmienna informująca o tym czy zostało wymuszone zamknięcie programu 
+
+//Zmienna pilnująca, czy program dalej działa
 int isActive = 1;
-// Zmienna przechowująca ilość samochodów
+//Zmienna przechowująca ilość samochodów
 int amountOfCars;
 
-// Inicjalizacja mutexu odpowiadającego za most
-pthread_mutex_t bridge; //= PTHREAD_MUTEX_INITIALIZER;
-// Inicjalizacja mutexu odpowiadającego za zmianę stanu samochodów
-pthread_mutex_t stats; //= PTHREAD_MUTEX_INITIALIZER;
-// Inicjalizacja zmiennej warunkowej odpowiedzialnej za most
-pthread_cond_t condBridge;// = PTHREAD_COND_INITIALIZER;
-// Inicjalizacja zmiennej warunkowej odpowiedzianej za zmianę stanu samochodów
-pthread_cond_t condStats; //= PTHREAD_COND_INITIALIZER;
+//Inicjalizacja mutexu oraz zmiennej warunkowej odpowiadających za most
+pthread_mutex_t bridge;
+pthread_cond_t condBridge;
+//Inicjalizacja mutexu oraz zmiennej warunkowej odpowiadających za zmianę stanu samochodów
+pthread_mutex_t stats;
+pthread_cond_t condStats;
 
-int main(int argc, char *argv[])
-{
-    // Sprawdzanie poprawności wprowadzonych parametrów
-    // Sprawdzanie ilości parametrów
-
-    // Sprawdzenie czy parametr jest liczbą
+int main(int argc, char *argv[]){
+	//sprawdzanie podanego argumentu
 	if (!validate(argc, argv)){
 		printf("Uruchomienie programu: ./main <liczbaCałkowitaDodatnia>");
-		//np ./main 5
 		return EXIT_FAILURE;
  	}
- 	
+ 	//Ilość utworzonych wątków itd. (samochodów)
     	amountOfCars = atoi(argv[1]);
-
+	//Inicjalizacja mutexow i zmiennych warunkowych
 	if(!initializeStart()){
 		return EXIT_FAILURE;
 	}
 	
 	signal(SIGINT, closeProgram);
-    // Operacje na wątkach
-    // Stworzenie tablicy struktur dla samochodów
+	
+	//Inicjalizacja struktury, przydzielenie pamięci
 	cars = (struct car*) calloc(amountOfCars, sizeof(struct car));
-    // Ustawianie wartosci domyslnych dla samochodu przejezdzajacego przez most
+	//Ustawienie wartosci domyslnych dla samochodu przejezdzajacego przez most
 	strBridgeInfo = resetBridge(strBridgeInfo);
-    // Tworzenie wątków
+	//Tworzenie wątków
 	int i = 0;
 	for (i = 0; i < amountOfCars; i++){
 		if (pthread_create(&(cars[i].thread), NULL, &threadRoutine, (void *)(intptr_t)i)){
@@ -101,7 +88,7 @@ int main(int argc, char *argv[])
 			free(cars);
 		}
 	}
-    // Łączenie wątków
+	//Łączenie wątków
 	for (i = 0; i < amountOfCars; i++){
 		if (pthread_join(cars[i].thread, NULL)){
 			printf("Thread join failed for id %d\n", i);
@@ -110,13 +97,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
-    // Usuwanie mutexów i zmiennych warunkowych
+	//Kasowanie mutexów i zmiennych warunkowych
 	closeThreads();
 
 	printf("\n");
-    // Wypisanie podsumowania ilości przejazdów danych samochodów przez most
+    	//Podsumowanie tzn ilość przejazdów danego samochodu przez most
 	for (i = 0; i < amountOfCars; i++)
 		printf("Car \e[0;32m%d\e[0m crossed the bridge \e[0;32m%d\e[0m times\n", i, cars[i].timesCrossed);
+	//Zwolnienie pamięci
 	free(cars);
 	printf("\nProgram closed\n");
 	exit(EXIT_SUCCESS);
@@ -152,18 +140,17 @@ void closeThreads(){
 void closeProgram(int sig){
 	printf("\nStopping work\n");
 	int i = 0;
-    // Ustawienie wartości wymuszającej zamknięcie programu
-	isActive = i;
-    // Odebranie sygnału do wymuszenia zamknięcia programu
-    // Anulowanie wątków
+	//Zmiana wartości, by zakończyć program
+	isActive = 0;
+	//Anulowanie wątków
 	for (i = 0; i < amountOfCars; i++)
 		pthread_cancel(cars[i].thread);
+	//Kolejne odebranie sygnału by wymusić zamknięcie programu
 	signal(sig, forceCloseProgram);
 }
 
 void forceCloseProgram(int sig){
 	printf("\nProgram shutting down\n");
-    // Usuwanie mutexów i zmiennych warunkowych
 	closeThreads();
 	free(cars);
 	printf("Program closed\n");
@@ -174,117 +161,110 @@ void forceCloseProgram(int sig){
 
 
 void* threadRoutine(void* threadId){
+	//numer wątku(samochodu)
 	int carNumber = (int)(intptr_t)threadId;
-    // Zmienna sprawdzająca czy wypisywany jest status mostu
-    
-    // Umożliwienie opóźnienia anulowania wątku
-	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-    // Podpisanie wskaźnika na informacje o konkretnym samochodzie
-	struct car* car = &(cars[carNumber]);
 	int writing = 0;
+	//Umożliwienie opóźnienia anulowania wątku
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    	//Wskaźnik na konkretny samochód
+	struct car* car = &(cars[carNumber]);
 	lockMutex(stats);
 	startWriting();
-    // Wyzerowanie ilości przejazdów przez most
+	//Początkowa ilosć przejazdów przez most
 	car->timesCrossed = 0;
-    // Przypisanie stanu przebywania w mieście
-	car->state = STATE_CITY;
-    // Losowanie, w którym mieście przebywa samochód (0 - miasto A, 1 - miasto B)
+	//Przypisanie stanu samochodu na miasto
+	car->state = CITY;
+	//Losowanie, w którym mieście będzie przebywał samochód (0 - miasto A, 1 - miasto B)
 	car->city = selectRandomCity();
 	stopWriting();
 	unlockMutex(stats);
 
-    // Struktura wykorzystywana do czasu czekania w mieście i przejazdu przez most
+	//Struktura timespec, przechowuje czas czekania w mieście i przejazdu przez most
 	struct timespec tvTime;
 	tvTime.tv_sec = 0;
 	tvTime.tv_nsec = 0;
 
 	while(1){
-        // Ustawienie długości czekania w mieście
+		//Samochód czeka w mieście, wartość pseudolosowa
 		tvTime.tv_nsec = randTime();
 		nanosleep(&tvTime, NULL);
 		lockMutex(stats);
 		startWriting();
-        // Przypisanie stanu czekania w kolejce
-		car->state = STATE_QUEUE;
+		//Samochód czeka w kolejce
+		car->state = QUEUE;
 		currentStatus();
 		stopWriting();
 		unlockMutex(stats);
 
 		lockMutex(bridge);
-        // Zawieszenie wykonania procesu dopóki most nie będzie pusty
+		//Zawieszenie wykonania procesu dopóki most nie będzie pusty
 		while (strBridgeInfo.carNumber != -1)
 			pthread_cond_wait(&condBridge, &bridge);
         
-        // Nałożenie blokady na mutex
+		//Nałożenie blokady na mutex
 		pthread_mutex_lock(&stats);
 		startWriting();
-        // Ustawienie stanu wypisywania statusu mostu
 		writing = 1;
-        // Przypisanie stanu przejazdu przez most
-		car->state = STATE_CROSSING;
-        // Zaktualizowanie stanu mostu (samochód przejeżdża)
+		//Samochód przejeżdza przez most
+		car->state = ON_BRIDGE;
+		//Zaktualizowanie stanu mostu (samochód przejeżdża)
 		strBridgeInfo.carNumber = carNumber;
 		strBridgeInfo.direction = car->city;
 		currentStatus();
 		stopWriting();
-        //Zdjęcie blokady z mutexu
+		//Zdjęcie blokady z mutexu
 		pthread_mutex_unlock(&stats);
 
-        // Ustawienie długości przejazdu przez most
-		tvTime.tv_nsec = 100;
+		//Czas przejazdu przez most
+		tvTime.tv_nsec = randTimeOnBridge();
 		if (isActive) 
 			nanosleep(&tvTime, NULL);
 
 		pthread_mutex_lock(&stats);
 		startWriting();
-        // Zmiana miasta, w którym przebywa samochód
-        	car->state = STATE_CITY;
+		//Zmiana miasta, w którym przebywa samochód, 0 staje się 1, 1 staje się 0
+        	car->state = CITY;
 		car->city = changeCity(car->city);
 		
-        // Zaktualizowanie stanu mostu (samochód przejechał)
+		//Zaktualizowanie stanu mostu (samochód przejechał)
 		strBridgeInfo = resetBridge(strBridgeInfo);
-        // Zwiększenie ilości przejazdów przez most danego samochodu
+		//Informacja o kolejnym przejezdzie samochodu
 		if (isActive) 
 			car->timesCrossed++;
 		currentStatus();
 		stopWriting();
 		pthread_mutex_unlock(&stats);
 
-        // Wznowienie wykonywania procesu
+		//Wznowienie wykonywania procesu
 		pthread_cond_signal(&condBridge);
 		unlockMutex(bridge);
 	}
 }
 
 void currentStatus(){
-    // Wyświetlenie informacji o czyszczeniu mostu po wymuszeniu zamknięcia programu
+	//Wyświetlenie informacji o czyszczeniu mostu po wymuszeniu zamknięcia programu
 	if (!isActive) 
 		printf("\e[0;36m\nClearing...\n\e[0m");
-    // Tablica wszystkich samochodów z podziałem na stany (w mieście A, w kolejce miasta A, przejeżdżające z A do B, w kolejce miasta B, w mieście B, przejeżdżające z B do A)
-	int car_sum[3][2] = {0, 0, 0, 0, 0, 0};
+	//Tablica wszystkich samochodów z podziałem na stany 
+	//Kolejno: w mieście A, w kolejce miasta A, przejeżdżające z A do B,
+	//w kolejce miasta B, w mieście B, przejeżdżające z B do A)
+	int carsTotal[3][2] = {0, 0, 0, 0, 0, 0};
 	int i = 0;
 	for (i = 0; i < amountOfCars; i++)
-		car_sum[cars[i].state][cars[i].city]++;
-    // Suma wszystkich aut w programie
-	int sum = car_sum[STATE_CITY][A] + car_sum[STATE_CITY][B] + 
-        car_sum[STATE_QUEUE][A] + car_sum[STATE_QUEUE][B]; 
-    // Sprawdzenie czy jakiś samochód przejeżdża przez most
+		carsTotal[cars[i].state][cars[i].city]++;
+	//Czy jakiś samochód przejeżdża obecnie przez most
 	if (strBridgeInfo.carNumber >= 0){
-        // Zwiększenie sumy o auto przejeżdżające przez most
-        	sum += 1;
-        // Sprawdzenie czy samochód przejeżdża a miasta A do miasta B
+		//Sprawdzenie dokąd zmierza samochód(w którą stronę)
         	if (strBridgeInfo.direction == A){
-            	printf("A-%02d \e[0;32m%02d\e[0m>>> [>> \e[0;32m %02d \e[0m >>] <<<\e[0;32m%02d \e[0m%02d-B\n", car_sum[STATE_CITY][A], car_sum[STATE_QUEUE][A], 
-            	strBridgeInfo.carNumber, car_sum[STATE_QUEUE][B], car_sum[STATE_CITY][B]);
+            	printf("A-%02d \e[0;32m%02d\e[0m>>> [>> \e[0;32m %02d \e[0m >>] <<<\e[0;32m%02d \e[0m%02d-B\n", carsTotal[CITY][A], carsTotal[QUEUE][A], 
+            	strBridgeInfo.carNumber, carsTotal[QUEUE][B], carsTotal[CITY][B]);
         	}else{
-            	printf("A-%02d \e[0;32m%02d\e[0m>>> [<< \e[0;32m %02d \e[0m <<] <<<\e[0;32m%02d \e[0m%02d-B\n", car_sum[STATE_CITY][A], car_sum[STATE_QUEUE][A], 
-            	strBridgeInfo.carNumber, car_sum[STATE_QUEUE][B], car_sum[STATE_CITY][B]);
+            	printf("A-%02d \e[0;32m%02d\e[0m>>> [<< \e[0;32m %02d \e[0m <<] <<<\e[0;32m%02d \e[0m%02d-B\n", carsTotal[CITY][A], carsTotal[QUEUE][A], 
+            	strBridgeInfo.carNumber, carsTotal[QUEUE][B], carsTotal[CITY][B]);
             	}
 	}else{
-        	printf("A-%02d \e[0;32m%02d\e[0m>>> [          ] <<<\e[0;32m%02d \e[0m%02d-B\n", car_sum[STATE_CITY][A], car_sum[STATE_QUEUE][A], 
-        	car_sum[STATE_QUEUE][B], car_sum[STATE_CITY][B]);
+        	printf("A-%02d \e[0;32m%02d\e[0m>>> [          ] <<<\e[0;32m%02d \e[0m%02d-B\n", carsTotal[CITY][A], carsTotal[QUEUE][A], 
+        	carsTotal[QUEUE][B], carsTotal[CITY][B]);
         }
-    // Sprawdzenie czy suma wszystkich samochodów w programie jest równa ilości wprowadzonej w parametrze 
-
 }
 
