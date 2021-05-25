@@ -115,6 +115,8 @@ void PrintStatus()
 
 
 //tutaj dodamy czynności sędziego, który będzie rozsrztygał, kto przejeżdza przez most
+//musi on zablokować na początku wszystkie mutexy, a później odblokowywać odbowiedni mutex, kt
+//ry stoi w kolejce i jest pierwszy
 void *Referee(void *args)
 {
 
