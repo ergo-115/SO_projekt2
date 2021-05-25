@@ -6,12 +6,14 @@ int iter = 1;
 //dostępny dla każdego samochodu
 pthread_mutex_t bridge;
 
+pthread_mutex_t cs;
+
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
 int carsInA=0;
 int carsInB=0;
-int carOnBridge=0;
+int carOnBridge=-1;
 int carsBeforeBridgeA=0;
 int carsBeforeBridgeB=0;
 char *direction;
@@ -31,54 +33,93 @@ void *CarRoutine(void *args)
     iter++;
 	while(1)
 	{
-		//printf("Samochód %d załatwia swoje sprawy w mieście A\n",vehicleNo);
+        //wjazd do miasta A
+        pthread_mutex_lock(&cs);
+        carOnBridge = -1;
+        direction = "||";
         carsInA++;
         PrintStatus();
-		ClockSleep(minSleepTime,maxSleepTime);
-        carsInA--;
-        carsBeforeBridgeA++;
-        PrintStatus();
-        ClockSleep(minSleepTime,maxSleepTime);
-		//printf("Samochód %d zatankował i wyjeżdza do miasta B\n",vehicleNo);
-		
-		//przejazd przez most, który zajmuje do 5 s czasu
-		//most jest wtedy zablokowany i nie przejezdny
-		pthread_mutex_lock(&bridge);
-        carsBeforeBridgeA--;
-        carOnBridge = vehicleNo;
-        direction=">>";
-        PrintStatus();
-		//printf("Samochód %d przejeżdza przez most\n",vehicleNo);
-		ClockSleep(minSleepTime,maxSleepTime);
-        //printf("Samochód %d przejechał przez most\n",vehicleNo);
-		pthread_mutex_unlock(&bridge);
-        carsBeforeBridgeB++;
-        PrintStatus();
-        ClockSleep(minSleepTime,maxSleepTime);
-        carsBeforeBridgeB--;
+        pthread_mutex_unlock(&cs);
+
+        //wyjazd zmiasta A, czekanie na most, jesli nie jest pusty
+
+        //jeśli wjedziemy od razu na most z miasta A
+        if( 0 == (pthread_mutex_trylock(&bridge)))
+        {
+            pthread_mutex_lock(&cs);
+            carsInA -- ;
+            carOnBridge = vehicleNo;
+            direction=">>";
+            PrintStatus();
+            pthread_mutex_unlock(&bridge);
+            pthread_mutex_unlock(&cs);
+        }
+        //most zajęty teraz, trzeba się ustawić w kolejce
+        else
+        {
+            //ustawiamy się w kolejce, zwiększamy liczniki itd.
+            pthread_mutex_lock(&cs);
+            carsInA -- ;
+            carsBeforeBridgeA ++;
+            PrintStatus();
+            pthread_mutex_unlock(&cs);
+
+            //czekamy na możliwość wjazdu na most, jeśli mamy możliwość
+            //od razu wjeżdzamy
+            pthread_mutex_lock(&bridge);
+            pthread_mutex_lock(&cs);
+            carsBeforeBridgeA--;
+            carOnBridge=vehicleNo;
+            direction=">>";
+            PrintStatus();
+            pthread_mutex_unlock(&cs);
+            pthread_mutex_unlock(&bridge);
+
+            
+        }
+        //wjeżdzamy do miasta B
+        pthread_mutex_lock(&cs);
+        carOnBridge = -1;
+        direction = "||";
         carsInB++;
         PrintStatus();
-		//printf("Samochód %d załatwia swoje sprawy na mieście B\n",vehicleNo);
-		ClockSleep(minSleepTime,maxSleepTime);
-        carsInB--;
-		//printf("Samochód %d zatankował i wyjeżdza do miasta A\n",vehicleNo);
+        pthread_mutex_unlock(&cs);
 
-		//przejazd przez most, który zajmuje do 5 s czasu
-		//most jest wtedy zablokowany i nie przejezdny
-        carsBeforeBridgeB++;
-        PrintStatus();
-        ClockSleep(minSleepTime,maxSleepTime);
-		pthread_mutex_lock(&bridge);
-        carOnBridge = vehicleNo;
-        direction="<<";
-        PrintStatus();
-		//printf("Samochód %d przejeżdza przez most\n",vehicleNo);
-		ClockSleep(minSleepTime,maxSleepTime);
-        //printf("Samochód %d przejechał przez most\n",vehicleNo);
-		pthread_mutex_unlock(&bridge);
-        carsBeforeBridgeA++;
-        ClockSleep(minSleepTime,maxSleepTime);
-        carsBeforeBridgeA--;
+        //wyjeżdzamy z miasta B, sprawdzamy czy możemy 
+        //wjechać na most
+
+        if( 0 == (pthread_mutex_trylock(&bridge)))
+        {
+            pthread_mutex_lock(&cs);
+            carsInB -- ;
+            carOnBridge = vehicleNo;
+            direction="<<";
+            PrintStatus();
+            pthread_mutex_unlock(&bridge);
+            pthread_mutex_unlock(&cs);
+        }
+        //most zajęty teraz, trzeba się ustawić w kolejce
+        else
+        {
+            //ustawiamy się w kolejce, zwiększamy liczniki itd.
+            pthread_mutex_lock(&cs);
+            carsInB -- ;
+            carsBeforeBridgeB ++;
+            PrintStatus();
+            pthread_mutex_unlock(&cs);
+
+            //czekamy na możliwość wjazdu na most, jeśli mamy możliwość
+            //od razu wjeżdzamy
+            pthread_mutex_lock(&bridge);
+            pthread_mutex_lock(&cs);
+            carsBeforeBridgeB--;
+            carOnBridge=vehicleNo;
+            direction="<<";
+            PrintStatus();
+            pthread_mutex_unlock(&cs);
+            pthread_mutex_unlock(&bridge);
+        }
+
 	}
 }
 
@@ -100,13 +141,12 @@ int main(int argc, char* argv[])
     //zmienna iteracyjna, pomaga przy tworzeniu wątków
     int i;
 
-    if(0 != pthread_mutex_init(&bridge,NULL))
+    if(0!= pthread_mutex_init(&cs,NULL))
     {
-        printf("Bląd inicjalizacji mostu!\n");
+        printf("Błąd inicjalizacji sekcji krytycznej");
         errno=-1;
         exit(EXIT_FAILURE);
     }
-
     for(i = 0; i<CarNumber; i++)
     {
         if(0 != pthread_create(&car[i], NULL, CarRoutine,&i))
