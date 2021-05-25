@@ -8,6 +8,8 @@ pthread_mutex_t bridge;
 
 pthread_mutex_t cs;
 
+pthread_mutex_t *mutexArray;
+
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
@@ -116,10 +118,12 @@ void PrintStatus()
 
 //tutaj dodamy czynności sędziego, który będzie rozsrztygał, kto przejeżdza przez most
 //musi on zablokować na początku wszystkie mutexy, a później odblokowywać odbowiedni mutex, kt
-//ry stoi w kolejce i jest pierwszy
+//ry stoi w kolejce i jest pierwszyls
 void *Referee(void *args)
 {
-
+    //dobra to działa!
+    int carsNo=*((int*)args);
+    printf("Referee succesfully created!, with %d cars\n",carsNo);
 }
 
 void *CarRoutine(void *args)
@@ -207,7 +211,12 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    //program needs car number to make mutexArray and other stuff
     int CarNumber = atoi(argv[1]);
+
+    //dynamically inicalised mutex array, for bridge hanling
+    mutexArray = (pthread_mutex_t*)malloc(CarNumber*sizeof(pthread_mutex_t));
+
 
     //kolejka
     queueAB = createQueue(CarNumber);
@@ -215,21 +224,40 @@ int main(int argc, char* argv[])
 
     //Samochody
     pthread_t car[CarNumber];
+    pthread_t referee;
 
-    //zmienna iteracyjna, pomaga przy tworzeniu wątków
+    //variable for iterations
     int i;
+
+    for(i=0;i<CarNumber;i++)
+    {
+        if(0!=pthread_mutex_init(&mutexArray[i],NULL))
+        {
+            printf("Error during mutex %d inicialisation",i);
+            errno=-1;
+            exit(EXIT_FAILURE);
+        }
+    }
 
     if(0!= pthread_mutex_init(&cs,NULL))
     {
-        printf("Błąd inicjalizacji sekcji krytycznej");
+        printf("Error occured during inicialisation of critical section");
         errno=-1;
         exit(EXIT_FAILURE);
     }
+    if(0!= pthread_create(&referee,NULL,Referee,&CarNumber))
+    {
+        printf("Some error connected to referee occured, aborting!");
+        errno=-1;
+        exit(EXIT_FAILURE);
+    }
+
+
     for(i = 0; i<CarNumber; i++)
     {
         if(0 != pthread_create(&car[i], NULL, CarRoutine,&i))
         {
-            printf("Blad inicjalizacji %d filozofa\n",i);
+            printf("Some error occured during inicialization of %d car\n",i);
             errno=1;
             exit(EXIT_FAILURE);
         }
