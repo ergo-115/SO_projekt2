@@ -1,7 +1,6 @@
 #include "data.h"
 
 
-int iter = 1;
 //tworzymy most jako zmienną globalną, ponieważ ma być
 //dostępny dla każdego samochodu
 pthread_mutex_t bridge;
@@ -128,8 +127,7 @@ void *Referee(void *args)
 
 void *CarRoutine(void *args)
 {
-    int vehicleNo = iter;
-    iter++;
+    int vehicleNo = *((int*)args);
     while(1)
     {
         //wjazd do miasta A
