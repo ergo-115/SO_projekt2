@@ -21,6 +21,14 @@
 #include <sys/mman.h>
 #include <utime.h>
 #include <pthread.h>
+#include <limits.h>
 #include "funkcje.h"
+
+// A structure to represent a queue
+struct Queue {
+    int front, rear, size;
+    unsigned capacity;
+    int* array;
+};
 
 #endif
