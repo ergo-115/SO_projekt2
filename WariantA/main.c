@@ -18,6 +18,7 @@ int carOnBridge=-1;
 int carsBeforeBridgeA=0;
 int carsBeforeBridgeB=0;
 char *direction;
+int iter=1;
 
 
 // A structure to represent a queue
@@ -31,6 +32,7 @@ struct Queue {
 //kolejka do mostu obsługuje żądania z obydwu stron!
 struct Queue* queueAB;
 struct Queue* queueBA;
+struct Queue* queue;
  
 // function to create a queue
 // of given capacity.
@@ -121,13 +123,29 @@ void PrintStatus()
 void *Referee(void *args)
 {
     //dobra to działa!
-    int carsNo=*((int*)args);
+    int carsNo=*((int*)args), i;
     printf("Referee succesfully created!, with %d cars\n",carsNo);
+
+    for(i=0;i<carsNo;i++)
+    {
+        //blokujemy wszystkie mutexy, tak aby to sędzia wyznaczał możliwość przejazdu przez most
+        //teraz wszystkie mutexy są zablokowane i odblokowujemy je tylko na chwilę, wtedy kiedy samochód może przejechać przez most
+        //te instrukcje wykonują się na początku, bo sędzia jest na początku inicjowany
+        pthread_mutex_lock(&mutexArray[i]);
+        printf("Zablokowano %d mutex\n",i);
+    }
+
+    //handling FIFO queue - first in first out
+    while(1)
+    {
+        while(!isEmpty(queueAB))
+    }
 }
 
 void *CarRoutine(void *args)
 {
-    int vehicleNo = *((int*)args);
+    int vehicleNo = iter;
+    iter++;
     while(1)
     {
         //wjazd do miasta A
@@ -146,6 +164,7 @@ void *CarRoutine(void *args)
         carsInA -- ;
         carsBeforeBridgeA ++;
         enqueue(queueAB,vehicleNo);
+        printf("Samochód dodany do kolejki: %d",vehicleNo);
         PrintStatus();
         pthread_mutex_unlock(&cs);
 
@@ -158,6 +177,7 @@ void *CarRoutine(void *args)
         carsBeforeBridgeA--;
         carOnBridge=dequeue(queueAB);
         direction=">>";
+        printf("Samochód zdjęty z kolejki: %d",carOnBridge);
         PrintStatus();
         pthread_mutex_unlock(&cs);
         pthread_mutex_unlock(&bridge);
@@ -216,11 +236,12 @@ int main(int argc, char* argv[])
     mutexArray = (pthread_mutex_t*)malloc(CarNumber*sizeof(pthread_mutex_t));
 
 
-    //kolejka
+    //inicialisation of queue
     queueAB = createQueue(CarNumber);
     queueBA = createQueue(CarNumber);
+    queue = createQueue(CarNumber);
 
-    //Samochody
+    //cars and referee
     pthread_t car[CarNumber];
     pthread_t referee;
 
