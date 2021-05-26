@@ -16,7 +16,7 @@ pthread_mutex_t LockAllMutexs;
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
-int carsInA=20;
+int carsInA=0;
 int carsInB=0;
 int carOnBridge=-1;
 int carsBeforeBridgeA=0;
@@ -34,8 +34,7 @@ struct Queue {
 
 //inicjalizacja wskaźnika na strukturę do przechowywania kolejki do mostu
 //kolejka do mostu obsługuje żądania z obydwu stron!
-struct Queue* queueAB;
-struct Queue* queueBA;
+
 struct Queue* queue;
  
 // function to create a queue
@@ -150,7 +149,8 @@ void *Referee(void *args)
 
             //unlock the mutex for this car, so it can cross the bridge
             pthread_mutex_unlock(&mutexArray[number]);
-            ClockSleep(2000,4000);
+            ClockSleep(2000,5000);
+            
             pthread_mutex_lock(&mutexArray[number]);
         }
     }
@@ -245,6 +245,7 @@ int main(int argc, char* argv[])
 
     //program needs car number to make mutexArray and other stuff
     int CarNumber = atoi(argv[1]);
+    carsInA = CarNumber;
 
     //dynamically inicalised mutex array, for bridge hanling
     mutexArray = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
@@ -252,9 +253,7 @@ int main(int argc, char* argv[])
     carPassed = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
 
 
-    //inicialisation of queue
-    queueAB = createQueue(CarNumber);
-    queueBA = createQueue(CarNumber);
+    
     queue = createQueue(CarNumber);
 
     //cars and referee
