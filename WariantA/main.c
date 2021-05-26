@@ -9,6 +9,10 @@ pthread_mutex_t cs;
 
 pthread_mutex_t *mutexArray;
 
+pthread_mutex_t *carPassed;
+
+pthread_mutex_t LockAllMutexs;
+
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
@@ -74,7 +78,7 @@ void enqueue(struct Queue* queue, int item)
                   % queue->capacity;
     queue->array[queue->rear] = item;
     queue->size = queue->size + 1;
-    printf("%d enqueued to queue\n", item);
+    //printf("%d enqueued to queue\n", item);
 }
  
 // Function to remove an item from queue.
@@ -112,6 +116,7 @@ int rear(struct Queue* queue)
 
 void PrintStatus()
 {
+    if(carOnBridge == -1) return;
     printf("A-%d %d>>> [%s %d %s] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,
            direction, carOnBridge, direction,carsBeforeBridgeB, carsInB);
 }
@@ -124,21 +129,30 @@ void *Referee(void *args)
 {
     //dobra to działa!
     int carsNo=*((int*)args), i;
-    printf("Referee succesfully created!, with %d cars\n",carsNo);
 
-    for(i=0;i<carsNo;i++)
+    for(i=1;i<carsNo+1;i++)
     {
         //blokujemy wszystkie mutexy, tak aby to sędzia wyznaczał możliwość przejazdu przez most
         //teraz wszystkie mutexy są zablokowane i odblokowujemy je tylko na chwilę, wtedy kiedy samochód może przejechać przez most
         //te instrukcje wykonują się na początku, bo sędzia jest na początku inicjowany
         pthread_mutex_lock(&mutexArray[i]);
-        printf("Zablokowano %d mutex\n",i);
+        //printf("Zablokowano %d mutex\n",i);
     }
 
     //handling FIFO queue - first in first out
     while(1)
     {
-        while(!isEmpty(queueAB))
+        //if the queue is not empty
+        while(!isEmpty(queue))
+        {
+            //take first number, we will give it acces to the bridge
+            int number = dequeue(queue);
+
+            //unlock the mutex for this car, so it can cross the bridge
+            pthread_mutex_unlock(&mutexArray[number]);
+            ClockSleep(2000,4000);
+            pthread_mutex_lock(&mutexArray[number]);
+        }
     }
 }
 
@@ -146,10 +160,63 @@ void *CarRoutine(void *args)
 {
     int vehicleNo = iter;
     iter++;
+    pthread_mutex_lock(&carPassed[vehicleNo]);
     while(1)
     {
-        //wjazd do miasta A
+        //the very first thing to do is 
+        //stay in queue to bridge for your time
+
         pthread_mutex_lock(&cs);
+        carsBeforeBridgeA++;
+        enqueue(queue,vehicleNo);
+        pthread_mutex_unlock(&cs);
+        //wait for unlock of the bridge
+        pthread_mutex_lock(&mutexArray[vehicleNo]);
+
+        carsBeforeBridgeA--;
+        direction=">>";
+        carOnBridge = vehicleNo;
+        PrintStatus();
+
+        //unlock the mutex, so it can be blocked again
+        pthread_mutex_unlock(&mutexArray[vehicleNo]);
+
+
+        ClockSleep(1000, 3999);
+
+        //wjeżdzamy do miasta B
+        carsInB++;
+
+        ClockSleep(4000, 7000);
+
+        //ustawiamy się w kolejce, zwiększamy liczniki itd.
+        pthread_mutex_lock(&cs);
+        carsInB -- ;
+        carsBeforeBridgeB ++;
+        enqueue(queue,vehicleNo);
+        pthread_mutex_unlock(&cs);
+
+        ClockSleep(3000, 6000);
+
+
+         //wait for unlock of the bridge
+        pthread_mutex_lock(&mutexArray[vehicleNo]);
+        
+        //wait for critical section mutex
+        pthread_mutex_lock(&cs);
+        PrintStatus();
+        carsBeforeBridgeB--;
+        carOnBridge=vehicleNo;
+        direction="<<";
+        PrintStatus();
+
+         //unlock the mutex, so it can be blocked again
+        pthread_mutex_unlock(&mutexArray[vehicleNo]);
+
+
+        ClockSleep(2000, 5000);
+
+        //wjazd do miasta A
         carOnBridge = -1;
         direction = "||";
         carsInA++;
@@ -163,56 +230,9 @@ void *CarRoutine(void *args)
         pthread_mutex_lock(&cs);
         carsInA -- ;
         carsBeforeBridgeA ++;
-        enqueue(queueAB,vehicleNo);
-        printf("Samochód dodany do kolejki: %d",vehicleNo);
+        enqueue(queue,vehicleNo);
         PrintStatus();
         pthread_mutex_unlock(&cs);
-
-        ClockSleep(2000, 5000);
-
-        //czekamy na możliwość wjazdu na most, jeśli mamy możliwość
-        //od razu wjeżdzamy
-        pthread_mutex_lock(&bridge);
-        pthread_mutex_lock(&cs);
-        carsBeforeBridgeA--;
-        carOnBridge=dequeue(queueAB);
-        direction=">>";
-        printf("Samochód zdjęty z kolejki: %d",carOnBridge);
-        PrintStatus();
-        pthread_mutex_unlock(&cs);
-        pthread_mutex_unlock(&bridge);
-
-        ClockSleep(1000, 3999);
-
-        //wjeżdzamy do miasta B
-        pthread_mutex_lock(&cs);
-        carsInB++;
-        PrintStatus();
-        pthread_mutex_unlock(&cs);
-
-        ClockSleep(4000, 7000);
-
-        //ustawiamy się w kolejce, zwiększamy liczniki itd.
-        pthread_mutex_lock(&cs);
-        carsInB -- ;
-        carsBeforeBridgeB ++;
-        enqueue(queueBA,vehicleNo);
-        PrintStatus();
-        pthread_mutex_unlock(&cs);
-
-        ClockSleep(3000, 6000);
-
-
-        //czekamy na możliwość wjazdu na most, jeśli mamy możliwość
-        //od razu wjeżdzamy
-        pthread_mutex_lock(&bridge);
-        pthread_mutex_lock(&cs);
-        carsBeforeBridgeB--;
-        carOnBridge=dequeue(queueBA);
-        direction="<<";
-        PrintStatus();
-        pthread_mutex_unlock(&cs);
-        pthread_mutex_unlock(&bridge);
 
         ClockSleep(2000, 5000);
 
@@ -233,7 +253,9 @@ int main(int argc, char* argv[])
     int CarNumber = atoi(argv[1]);
 
     //dynamically inicalised mutex array, for bridge hanling
-    mutexArray = (pthread_mutex_t*)malloc(CarNumber*sizeof(pthread_mutex_t));
+    mutexArray = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
+
+    carPassed = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
 
 
     //inicialisation of queue
@@ -258,6 +280,13 @@ int main(int argc, char* argv[])
         }
     }
 
+    if(0!= pthread_mutex_init(&LockAllMutexs,NULL))
+    {
+        printf("Some error occured with LockAllMutexs inicialisation");
+        errno=-1;
+        exit(EXIT_FAILURE);
+    }
+
     if(0!= pthread_mutex_init(&cs,NULL))
     {
         printf("Error occured during inicialisation of critical section");
@@ -271,6 +300,8 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    //wait for initialisation of all mutexes
+    ClockSleep(8000,10000);
 
     for(i = 0; i<CarNumber; i++)
     {
