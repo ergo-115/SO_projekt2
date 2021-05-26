@@ -16,7 +16,7 @@ pthread_mutex_t LockAllMutexs;
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
-int carsInA=0;
+int carsInA=20;
 int carsInB=0;
 int carOnBridge=-1;
 int carsBeforeBridgeA=0;
@@ -160,16 +160,22 @@ void *CarRoutine(void *args)
 {
     int vehicleNo = iter;
     iter++;
-    pthread_mutex_lock(&carPassed[vehicleNo]);
     while(1)
     {
         //the very first thing to do is 
         //stay in queue to bridge for your time
 
+        //wyjazd z miasta A
+        //ustawiamy się w kolejce, zwiększamy liczniki itd.
         pthread_mutex_lock(&cs);
-        carsBeforeBridgeA++;
+        carsInA -- ;
+        carsBeforeBridgeA ++;
         enqueue(queue,vehicleNo);
+        PrintStatus();
         pthread_mutex_unlock(&cs);
+
+        ClockSleep(2000, 5000);
+
         //wait for unlock of the bridge
         pthread_mutex_lock(&mutexArray[vehicleNo]);
 
@@ -178,14 +184,12 @@ void *CarRoutine(void *args)
         carOnBridge = vehicleNo;
         PrintStatus();
 
+        //wjeżdzamy do miasta B
+        carsInB++;
+
         //unlock the mutex, so it can be blocked again
         pthread_mutex_unlock(&mutexArray[vehicleNo]);
 
-
-        ClockSleep(1000, 3999);
-
-        //wjeżdzamy do miasta B
-        carsInB++;
 
         ClockSleep(4000, 7000);
 
@@ -204,7 +208,6 @@ void *CarRoutine(void *args)
         
         //wait for critical section mutex
         pthread_mutex_lock(&cs);
-        PrintStatus();
         carsBeforeBridgeB--;
         carOnBridge=vehicleNo;
         direction="<<";
@@ -225,16 +228,7 @@ void *CarRoutine(void *args)
 
         ClockSleep(minSleepTime, maxSleepTime);
 
-        //wyjazd z miasta A
-        //ustawiamy się w kolejce, zwiększamy liczniki itd.
-        pthread_mutex_lock(&cs);
-        carsInA -- ;
-        carsBeforeBridgeA ++;
-        enqueue(queue,vehicleNo);
-        PrintStatus();
-        pthread_mutex_unlock(&cs);
-
-        ClockSleep(2000, 5000);
+        
 
     }
 }
