@@ -1,37 +1,16 @@
 #include "data.h"
 #include "init.h"
-//założenie blokady na mutex, uniemożliwienie przerwania wątku
-#define lockMutex(varMutex) \
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL); \
-    pthread_mutex_lock(&varMutex)
 
-//zdjęcie blokady z mutexa, umożliwienie przerwania wątku
-#define unlockMutex(varMutex) \
-    pthread_mutex_unlock(&varMutex); \
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL)
-
-
-//zawiesza proces, by móc wypisać obecny stan
-#define startWriting() \
-    while (writing) \
-        pthread_cond_wait(&condStats, &stats);\
-    writing = 1
-
-//wznawia proces po wypisaniu statusu
-#define stopWriting() \
-    writing = 0;\
-    pthread_cond_signal(&condStats)
-
-//Stała - miasto A
-#define A 0
-//Stała - miasto B
-#define B 1
 //Stała - gdy samochód jest w mieście
 #define CITY 0
 //Stała - gdy samochód czeka w kolejce
 #define QUEUE 1
 //Stała, gdy samochod przejeżdza przez most
 #define ON_BRIDGE 2
+//Stała - miasto A
+#define A 0
+//Stała - miasto B
+#define B 1
 //Inicjalizacja mutexów oraz zmiennych warunkowych
 int initializeStart();
 //Kasowanie mutexów oraz zmiennych warunkowych
@@ -44,7 +23,7 @@ void forceCloseProgram(int sig);
 void* threadRoutine(void *threadId);
 //Funkcja wypisująca obecną sytuację w programie, w formacie jak było podane
 void currentStatus();
-//Inicjalizacja struktury
+//Inicjalizacja struktur
 struct car* cars;
 struct bridgeInfo strBridgeInfo;
 
@@ -102,8 +81,10 @@ int main(int argc, char *argv[]){
 
 	printf("\n");
     	//Podsumowanie tzn ilość przejazdów danego samochodu przez most
+    	/*
 	for (i = 0; i < amountOfCars; i++)
 		printf("Car \e[0;32m%d\e[0m crossed the bridge \e[0;32m%d\e[0m times\n", i, cars[i].timesCrossed);
+	*/
 	//Zwolnienie pamięci
 	free(cars);
 	printf("\nProgram closed\n");
@@ -168,16 +149,25 @@ void* threadRoutine(void* threadId){
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
     	//Wskaźnik na konkretny samochód
 	struct car* car = &(cars[carNumber]);
-	lockMutex(stats);
-	startWriting();
+	//założenie blokady na mutex, uniemożliwienie przerwania wątku
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	pthread_mutex_lock(&stats);
+	//zawiesza proces, by móc wypisać obecny stan
+	while (writing)
+		pthread_cond_wait(&condStats, &stats);
+	writing = 1;
 	//Początkowa ilosć przejazdów przez most
 	car->timesCrossed = 0;
 	//Przypisanie stanu samochodu na miasto
 	car->state = CITY;
 	//Losowanie, w którym mieście będzie przebywał samochód (0 - miasto A, 1 - miasto B)
 	car->city = selectRandomCity();
-	stopWriting();
-	unlockMutex(stats);
+	//wznawia proces po wypisaniu statusu
+	writing = 0;
+	pthread_cond_signal(&condStats);
+	//zdjęcie blokady z mutexa, umożliwienie przerwania wątku
+	pthread_mutex_unlock(&stats);
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
 	//Struktura timespec, przechowuje czas czekania w mieście i przejazdu przez most
 	struct timespec tvTime;
@@ -188,22 +178,35 @@ void* threadRoutine(void* threadId){
 		//Samochód czeka w mieście, wartość pseudolosowa
 		tvTime.tv_nsec = randTime();
 		nanosleep(&tvTime, NULL);
-		lockMutex(stats);
-		startWriting();
+		//założenie blokady na mutex, uniemożliwienie przerwania wątku
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		pthread_mutex_lock(&stats);
+		//zawiesza proces, by móc wypisać obecny stan
+		while (writing)
+			pthread_cond_wait(&condStats, &stats);
+		writing = 1;
 		//Samochód czeka w kolejce
 		car->state = QUEUE;
 		currentStatus();
-		stopWriting();
-		unlockMutex(stats);
+		//wznawia proces po wypisaniu statusu
+		writing = 0;
+		pthread_cond_signal(&condStats);
+		//zdjęcie blokady z mutexa, umożliwienie przerwania wątku
+		pthread_mutex_unlock(&stats);
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-		lockMutex(bridge);
+		//założenie blokady na mutex bridge, uniemożliwienie przerwania wątku
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+		pthread_mutex_lock(&bridge);
 		//Zawieszenie wykonania procesu dopóki most nie będzie pusty
 		while (strBridgeInfo.carNumber != -1)
 			pthread_cond_wait(&condBridge, &bridge);
         
 		//Nałożenie blokady na mutex
 		pthread_mutex_lock(&stats);
-		startWriting();
+		//zawiesza proces, by móc wypisać obecny stan
+		while (writing)
+			pthread_cond_wait(&condStats, &stats);
 		writing = 1;
 		//Samochód przejeżdza przez most
 		car->state = ON_BRIDGE;
@@ -211,7 +214,9 @@ void* threadRoutine(void* threadId){
 		strBridgeInfo.carNumber = carNumber;
 		strBridgeInfo.direction = car->city;
 		currentStatus();
-		stopWriting();
+		//wznawia proces po wypisaniu statusu
+		writing = 0;
+		pthread_cond_signal(&condStats);
 		//Zdjęcie blokady z mutexu
 		pthread_mutex_unlock(&stats);
 
@@ -221,7 +226,10 @@ void* threadRoutine(void* threadId){
 			nanosleep(&tvTime, NULL);
 
 		pthread_mutex_lock(&stats);
-		startWriting();
+		//zawiesza proces, by móc wypisać obecny stan
+		while (writing)
+			pthread_cond_wait(&condStats, &stats);
+		writing = 1;
 		//Zmiana miasta, w którym przebywa samochód, 0 staje się 1, 1 staje się 0
         	car->state = CITY;
 		car->city = changeCity(car->city);
@@ -232,19 +240,23 @@ void* threadRoutine(void* threadId){
 		if (isActive) 
 			car->timesCrossed++;
 		currentStatus();
-		stopWriting();
+		//wznawia proces po wypisaniu statusu
+		writing = 0;
+		pthread_cond_signal(&condStats);
 		pthread_mutex_unlock(&stats);
 
 		//Wznowienie wykonywania procesu
 		pthread_cond_signal(&condBridge);
-		unlockMutex(bridge);
+		//zdjęcie blokady z mutexa, umożliwienie przerwania wątku
+		pthread_mutex_unlock(&bridge);
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	}
 }
 
 void currentStatus(){
 	//Wyświetlenie informacji o czyszczeniu mostu po wymuszeniu zamknięcia programu
 	if (!isActive) 
-		printf("\e[0;36m\nClearing...\n\e[0m");
+		printf("\e[0;36mClearing...\t\e[0m");
 	//Tablica wszystkich samochodów z podziałem na stany 
 	//Kolejno: w mieście A, w kolejce miasta A, przejeżdżające z A do B,
 	//w kolejce miasta B, w mieście B, przejeżdżające z B do A)
