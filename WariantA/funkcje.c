@@ -3,7 +3,7 @@
 
 void ClockSleep(int minTime,int maxTime)
 {
-    //pobieramy aktualny czas systemowy
+    //get system time
     time_t tt;
 
     //podstawiamy za ziarno czas

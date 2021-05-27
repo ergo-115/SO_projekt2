@@ -110,11 +110,18 @@ int rear(struct Queue* queue)
 void PrintStatus()
 {
     //do nothing if no car is on the bridge
-    if(carOnBridge == -1) return;
-
-    //otherwise print status
+    if(carOnBridge == -1)
+    {
+              //otherwise print status
+    printf("A-%d %d>>> [       ] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,carsBeforeBridgeB, carsInB);
+    }
+    else
+    {
+        //otherwise print status
     printf("A-%d %d>>> [%s %d %s] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,
            direction, carOnBridge, direction,carsBeforeBridgeB, carsInB);
+    }
+    
 }
 
 
