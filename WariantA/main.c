@@ -137,7 +137,7 @@ void *Referee(void *args)
         pthread_mutex_lock(&mutexArray[i]);
         //printf("Zablokowano %d mutex\n",i);
     }
-
+    
     //handling FIFO queue - first in first out
     while(1)
     {
@@ -150,7 +150,6 @@ void *Referee(void *args)
             //unlock the mutex for this car, so it can cross the bridge
             pthread_mutex_unlock(&mutexArray[number]);
             ClockSleep(2000,5000);
-            
             pthread_mutex_lock(&mutexArray[number]);
         }
     }
@@ -170,37 +169,40 @@ void *CarRoutine(void *args)
         pthread_mutex_lock(&cs);
         carsInA -- ;
         carsBeforeBridgeA ++;
-        enqueue(queue,vehicleNo);
         PrintStatus();
+        enqueue(queue,vehicleNo);
         pthread_mutex_unlock(&cs);
 
-        ClockSleep(2000, 5000);
 
         //wait for unlock of the bridge
         pthread_mutex_lock(&mutexArray[vehicleNo]);
-
+        pthread_mutex_lock(&cs);
         carsBeforeBridgeA--;
         direction=">>";
         carOnBridge = vehicleNo;
         PrintStatus();
 
+        ClockSleep(minSleepTime,maxSleepTime);
         //wjeżdzamy do miasta B
+        carOnBridge = -1;
+        direction="||";
         carsInB++;
 
         //unlock the mutex, so it can be blocked again
         pthread_mutex_unlock(&mutexArray[vehicleNo]);
+        pthread_mutex_unlock(&cs);
 
-
-        ClockSleep(4000, 7000);
+        //wait in the city
+        ClockSleep(minSleepTime, maxSleepTime);
 
         //ustawiamy się w kolejce, zwiększamy liczniki itd.
         pthread_mutex_lock(&cs);
         carsInB -- ;
         carsBeforeBridgeB ++;
+        PrintStatus();
         enqueue(queue,vehicleNo);
         pthread_mutex_unlock(&cs);
 
-        ClockSleep(3000, 6000);
 
 
          //wait for unlock of the bridge
@@ -212,18 +214,16 @@ void *CarRoutine(void *args)
         carOnBridge=vehicleNo;
         direction="<<";
         PrintStatus();
-
-         //unlock the mutex, so it can be blocked again
-        pthread_mutex_unlock(&mutexArray[vehicleNo]);
-
-
-        ClockSleep(2000, 5000);
+        ClockSleep(minSleepTime,maxSleepTime);
+        
 
         //wjazd do miasta A
         carOnBridge = -1;
         direction = "||";
         carsInA++;
         PrintStatus();
+        //unlock the mutex, so it can be blocked again
+        pthread_mutex_unlock(&mutexArray[vehicleNo]);
         pthread_mutex_unlock(&cs);
 
         ClockSleep(minSleepTime, maxSleepTime);
