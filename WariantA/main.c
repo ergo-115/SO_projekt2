@@ -1,17 +1,14 @@
 #include "data.h"
 
 
-//tworzymy most jako zmienną globalną, ponieważ ma być
-//dostępny dla każdego samochodu
+//global mutexes to use them everywhere
 pthread_mutex_t bridge;
 
 pthread_mutex_t cs;
 
 pthread_mutex_t *mutexArray;
 
-pthread_mutex_t *carPassed;
 
-pthread_mutex_t LockAllMutexs;
 
 
 int minSleepTime = 10000;
@@ -32,9 +29,8 @@ struct Queue {
     int* array;
 };
 
-//inicjalizacja wskaźnika na strukturę do przechowywania kolejki do mostu
-//kolejka do mostu obsługuje żądania z obydwu stron!
 
+//queue to wait for the bridge to be free
 struct Queue* queue;
  
 // function to create a queue
@@ -110,32 +106,27 @@ int rear(struct Queue* queue)
 }
 
 
-//Funkcja do wyświetlania statusu w postaci:
-//A-5 10>>> [>> 4 >>] <<<4 6-B
-
+//Function for printing status
 void PrintStatus()
 {
+    //do nothing if no car is on the bridge
     if(carOnBridge == -1) return;
+
+    //otherwise print status
     printf("A-%d %d>>> [%s %d %s] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,
            direction, carOnBridge, direction,carsBeforeBridgeB, carsInB);
 }
 
 
-//tutaj dodamy czynności sędziego, który będzie rozsrztygał, kto przejeżdza przez most
-//musi on zablokować na początku wszystkie mutexy, a później odblokowywać odbowiedni mutex, kt
-//ry stoi w kolejce i jest pierwszyls
+//referee is for deciding wheather car can cross the bridge or not
 void *Referee(void *args)
 {
-    //dobra to działa!
     int carsNo=*((int*)args), i;
 
     for(i=1;i<carsNo+1;i++)
     {
-        //blokujemy wszystkie mutexy, tak aby to sędzia wyznaczał możliwość przejazdu przez most
-        //teraz wszystkie mutexy są zablokowane i odblokowujemy je tylko na chwilę, wtedy kiedy samochód może przejechać przez most
-        //te instrukcje wykonują się na początku, bo sędzia jest na początku inicjowany
+        //block every mutex of the car, so no car can cross the bridge
         pthread_mutex_lock(&mutexArray[i]);
-        //printf("Zablokowano %d mutex\n",i);
     }
     
     //handling FIFO queue - first in first out
@@ -149,7 +140,11 @@ void *Referee(void *args)
 
             //unlock the mutex for this car, so it can cross the bridge
             pthread_mutex_unlock(&mutexArray[number]);
+
+            //wait for car to pass the bridge
             ClockSleep(2000,5000);
+
+            //lock the mutex again, so same car cannot cross the bridge again without waiting
             pthread_mutex_lock(&mutexArray[number]);
         }
     }
@@ -237,9 +232,10 @@ void *CarRoutine(void *args)
 
 int main(int argc, char* argv[])
 {
+    //vaildate given data
     if(ValidateData(argc,argv) == false)
     {
-        printf("Błąd danych wejściowych, anulowanie\n");
+        printf("There's been error connected to validation, aborting!\n");
         exit(EXIT_FAILURE);
     }
 
@@ -250,19 +246,20 @@ int main(int argc, char* argv[])
     //dynamically inicalised mutex array, for bridge hanling
     mutexArray = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
 
-    carPassed = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
-
-
     
     queue = createQueue(CarNumber);
 
-    //cars and referee
+    //threads for cars
     pthread_t car[CarNumber];
+
+    //thread for referee
     pthread_t referee;
 
     //variable for iterations
     int i;
 
+    //initialise all mutexes for cars, those are for allowing and not allowing specific car
+    //to cross the bridge
     for(i=0;i<CarNumber;i++)
     {
         if(0!=pthread_mutex_init(&mutexArray[i],NULL))
@@ -273,19 +270,15 @@ int main(int argc, char* argv[])
         }
     }
 
-    if(0!= pthread_mutex_init(&LockAllMutexs,NULL))
-    {
-        printf("Some error occured with LockAllMutexs inicialisation");
-        errno=-1;
-        exit(EXIT_FAILURE);
-    }
-
+    //initialise critical section mutex
     if(0!= pthread_mutex_init(&cs,NULL))
     {
         printf("Error occured during inicialisation of critical section");
         errno=-1;
         exit(EXIT_FAILURE);
     }
+
+    //make thread for referee, which is for managing the bridge
     if(0!= pthread_create(&referee,NULL,Referee,&CarNumber))
     {
         printf("Some error connected to referee occured, aborting!");
@@ -293,9 +286,11 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    //wait for initialisation of all mutexes
+    //wait for initialisation of all mutexes, referee has to lock every mutex for cars
+    //to prevent from pasing without its turn
     ClockSleep(8000,10000);
 
+    //make threads for cars
     for(i = 0; i<CarNumber; i++)
     {
         if(0 != pthread_create(&car[i], NULL, CarRoutine,&i))
@@ -306,9 +301,11 @@ int main(int argc, char* argv[])
         }
     }
 
+    //doesnt have to be here, because cars are going forever
     for(i=0; i<CarNumber; i++)
     {
         pthread_join(car[i], NULL);
     }
-    return 0;
+    //end program, if everything is ok
+    exit(EXIT_SUCCESS);
 }
