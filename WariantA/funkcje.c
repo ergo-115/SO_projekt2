@@ -6,18 +6,16 @@ void ClockSleep(int minTime,int maxTime)
     //get system time
     time_t tt;
 
-    //podstawiamy za ziarno czas
+    //set seed to time value
     int seed = time(&tt);
 
-    //ustawiamy, by ziarno losowania było liczbą
-    //czasu
+    //set seed for rand() to time value
     srand(seed);
 
-    //śpimy nie więcej, niż to wynosi maxTime
+    //max sleep time is maxTime
     int sleepingTime=rand()%maxTime;
 
-    //sprawdzamy, czy wartość sleepingTime nie jest mniejsza niż
-    //minTime
+    //if time is less than minTime, we make random number again
     while(sleepingTime<minTime)
     {
         sleepingTime=rand()%maxTime;
@@ -28,9 +26,8 @@ void ClockSleep(int minTime,int maxTime)
     return;
 }
 
-/*Funkcja do sprawdzania długości liczby, dla 
-liczb 0-9 zwraca 1, dla 10-99 zwraca 2 itd.*/
 
+/*lenHelper returns length of number for example for 100 it would be 3, for 1 it would be 1 */
 int lenHelper(unsigned carCounter) 
 {
 	if(carCounter == 0) return 1;
@@ -44,45 +41,41 @@ int lenHelper(unsigned carCounter)
     return length;
 }
 
-//Funkcja do walidacji danych wejściowych, zwraca false, jeśli walidacja
-//nie przeszła, zwraca true, jeśli dane są poprawne
 
+
+//Function for walidation, returns true if everything is ok,
+//returns false if validation is not succesfull
 bool ValidateData(int argc,char *argv[])
 {
-    //carCounter argumentów większa niż 2, oznacza
-    //że ktoś podał więcej argumentów niż można
-    //program przyjmuje tylko ilość samochodów
+    
     if(argc > 2)
     {
-        printf("carCounter argumentów jest zbyt duża, dozwolona tylko carCounter samochodów\n");
+        printf("Number of arguments exceeds max of 2!\n");
         errno=-1;
         return false;
     }
 
-    //sprawdzamy, jaka carCounter jest w argumencie
     int carCounter = atoi(argv[1]);
 
     if(carCounter < 0)
     {
-        printf("Liczba samochodów nie może być ujemna!\n");
+        printf("Car number cannot be negative!\n");
         errno=-1;
         return false;
     }
 
-    //sprawdzamy, czy była to carCounter całkowita
-    //czy jakiś ciąg znaków
+    //check itnegrity of number wheather it's number or some string
     if(lenHelper(carCounter) != strlen(argv[1]))
     {
-        printf("Podana carCounter samochodów nie jest poprawną liczbą!\n");
+        printf("Given number is not valid!\n");
         errno=-1;
         return false;;
     }
 
-    //sprawdzamy, czy carCounter nie jest zerem
-    //muszą być jakieś samochody przecież
+    //number of cars cannot equal 0!
     if(carCounter == 0)
     {
-        printf("carCounter samochodów nie może wynosić 0!\n");
+        printf("carCounter cannot be 0!\n");
         errno=-1;
         return false;
     }

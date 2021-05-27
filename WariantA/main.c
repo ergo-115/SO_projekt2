@@ -166,8 +166,6 @@ void *CarRoutine(void *args)
         //the very first thing to do is 
         //stay in queue to bridge for your time
 
-        //wyjazd z miasta A
-        //ustawiamy się w kolejce, zwiększamy liczniki itd.
         pthread_mutex_lock(&cs);
         carsInA -- ;
         carsBeforeBridgeA ++;
@@ -185,7 +183,7 @@ void *CarRoutine(void *args)
         PrintStatus();
 
         ClockSleep(minSleepTime,maxSleepTime);
-        //wjeżdzamy do miasta B
+        //enter city B
         carOnBridge = -1;
         direction="||";
         carsInB++;
@@ -197,7 +195,7 @@ void *CarRoutine(void *args)
         //wait in the city
         ClockSleep(minSleepTime, maxSleepTime);
 
-        //ustawiamy się w kolejce, zwiększamy liczniki itd.
+        //go n' stay in queue etc.
         pthread_mutex_lock(&cs);
         carsInB -- ;
         carsBeforeBridgeB ++;
@@ -219,7 +217,7 @@ void *CarRoutine(void *args)
         ClockSleep(minSleepTime,maxSleepTime);
         
 
-        //wjazd do miasta A
+        //enter city A
         carOnBridge = -1;
         direction = "||";
         carsInA++;
