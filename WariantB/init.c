@@ -1,7 +1,7 @@
 #include "data.h"
 
 
-//costam
+//walidacja
 int validate(int argc, char* argv[]){
 	if(argc != 2){
 		//printf("Niepoprawna ilość argumentów\n");
