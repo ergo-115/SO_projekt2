@@ -9,7 +9,7 @@ pthread_mutex_t cs;
 pthread_mutex_t *mutexArray;
 
 
-
+int carNumber=0;
 
 int minSleepTime = 10000;
 int maxSleepTime = 100000;
@@ -20,7 +20,7 @@ int carsBeforeBridgeA=0;
 int carsBeforeBridgeB=0;
 char *direction;
 int iter=1;
-
+int working=1;
 
 // A structure to represent a queue
 struct Queue {
@@ -32,37 +32,37 @@ struct Queue {
 
 //queue to wait for the bridge to be free
 struct Queue* queue;
- 
+
 // function to create a queue
 // of given capacity.
 // It initializes size of queue as 0
 struct Queue* createQueue(unsigned capacity)
 {
     struct Queue* queue = (struct Queue*)malloc(
-        sizeof(struct Queue));
+                              sizeof(struct Queue));
     queue->capacity = capacity;
     queue->front = queue->size = 0;
- 
+
     // This is important, see the enqueue
     queue->rear = capacity - 1;
     queue->array = (int*)malloc(
-        queue->capacity * sizeof(int));
+                       queue->capacity * sizeof(int));
     return queue;
 }
- 
+
 // Queue is full when size becomes
 // equal to the capacity
 int isFull(struct Queue* queue)
 {
     return (queue->size == queue->capacity);
 }
- 
+
 // Queue is empty when size is 0
 int isEmpty(struct Queue* queue)
 {
     return (queue->size == 0);
 }
- 
+
 // Function to add an item to the queue.
 // It changes rear and size
 void enqueue(struct Queue* queue, int item)
@@ -75,7 +75,7 @@ void enqueue(struct Queue* queue, int item)
     queue->size = queue->size + 1;
     //printf("%d enqueued to queue\n", item);
 }
- 
+
 // Function to remove an item from queue.
 // It changes front and size
 int dequeue(struct Queue* queue)
@@ -88,7 +88,7 @@ int dequeue(struct Queue* queue)
     queue->size = queue->size - 1;
     return item;
 }
- 
+
 // Function to get front of queue
 int front(struct Queue* queue)
 {
@@ -96,7 +96,7 @@ int front(struct Queue* queue)
         return INT_MIN;
     return queue->array[queue->front];
 }
- 
+
 // Function to get rear of queue
 int rear(struct Queue* queue)
 {
@@ -112,16 +112,16 @@ void PrintStatus()
     //do nothing if no car is on the bridge
     if(carOnBridge == -1)
     {
-              //otherwise print status
-    printf("A-%d %d>>> [       ] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,carsBeforeBridgeB, carsInB);
+        //otherwise print status
+        printf("A-%d %d>>> [       ] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,carsBeforeBridgeB, carsInB);
     }
     else
     {
         //otherwise print status
-    printf("A-%d %d>>> [%s %d %s] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,
-           direction, carOnBridge, direction,carsBeforeBridgeB, carsInB);
+        printf("A-%d %d>>> [%s %d %s] <<< %d %d-B\n",carsInA, carsBeforeBridgeA,
+               direction, carOnBridge, direction,carsBeforeBridgeB, carsInB);
     }
-    
+
 }
 
 
@@ -130,17 +130,17 @@ void *Referee(void *args)
 {
     int carsNo=*((int*)args), i;
 
-    for(i=1;i<carsNo+1;i++)
+    for(i=1; i<carsNo+1; i++)
     {
         //block every mutex of the car, so no car can cross the bridge
         pthread_mutex_lock(&mutexArray[i]);
     }
-    
+
     //handling FIFO queue - first in first out
-    while(1)
+    while(1 && working == 1)
     {
         //if the queue is not empty
-        while(!isEmpty(queue))
+        while(!isEmpty(queue) )
         {
             //take first number, we will give it acces to the bridge
             int number = dequeue(queue);
@@ -161,9 +161,9 @@ void *CarRoutine(void *args)
 {
     int vehicleNo = iter;
     iter++;
-    while(1)
+    while(1 && working == 1)
     {
-        //the very first thing to do is 
+        //the very first thing to do is
         //stay in queue to bridge for your time
 
         pthread_mutex_lock(&cs);
@@ -205,9 +205,9 @@ void *CarRoutine(void *args)
 
 
 
-         //wait for unlock of the bridge
+        //wait for unlock of the bridge
         pthread_mutex_lock(&mutexArray[vehicleNo]);
-        
+
         //wait for critical section mutex
         pthread_mutex_lock(&cs);
         carsBeforeBridgeB--;
@@ -215,7 +215,7 @@ void *CarRoutine(void *args)
         direction="<<";
         PrintStatus();
         ClockSleep(minSleepTime,maxSleepTime);
-        
+
 
         //enter city A
         carOnBridge = -1;
@@ -228,9 +228,31 @@ void *CarRoutine(void *args)
 
         ClockSleep(minSleepTime, maxSleepTime);
 
-        
+
 
     }
+    
+}
+
+void closeThreads() {
+    working = 0;
+    pthread_mutex_destroy(&cs) ;
+    if (pthread_mutex_destroy(&bridge) != 0)
+        printf("\e[0;31mMutex destroy for bridge failed\e[0m\n");
+
+    int i;
+    for (i=0; i<carNumber+1; i++)
+    {
+        pthread_mutex_destroy(&mutexArray[i]);
+    }
+
+    free(mutexArray);
+}
+
+void closeProgram(int sig) {
+    printf("\nStopping work\n");
+    closeThreads();
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -244,14 +266,17 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    signal(SIGINT, closeProgram);
+
     //program needs car number to make mutexArray and other stuff
     int CarNumber = atoi(argv[1]);
     carsInA = CarNumber;
+    carNumber = CarNumber;
 
     //dynamically inicalised mutex array, for bridge hanling
     mutexArray = (pthread_mutex_t*)malloc((CarNumber+1)*sizeof(pthread_mutex_t));
 
-    
+
     queue = createQueue(CarNumber);
 
     //threads for cars
@@ -265,7 +290,7 @@ int main(int argc, char* argv[])
 
     //initialise all mutexes for cars, those are for allowing and not allowing specific car
     //to cross the bridge
-    for(i=0;i<CarNumber;i++)
+    for(i=0; i<CarNumber; i++)
     {
         if(0!=pthread_mutex_init(&mutexArray[i],NULL))
         {
@@ -311,6 +336,11 @@ int main(int argc, char* argv[])
     {
         pthread_join(car[i], NULL);
     }
-    //end program, if everything is ok
+   
+
+    //Anulowanie wątków
+    pthread_cancel(referee);
+    for (i = 0; i < carNumber; i++)
+        pthread_cancel(car[i]);
     exit(EXIT_SUCCESS);
 }
